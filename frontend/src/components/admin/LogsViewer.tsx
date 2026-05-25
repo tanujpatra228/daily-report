@@ -36,7 +36,7 @@ export function LogsViewer() {
     projectId: projectId || undefined,
   });
 
-  const { data: users = [] } = useUsersByTeam(teamId, isAdmin);
+  const { data: users = [] } = useUsersByTeam(teamId, isAdmin, { includeInactive: true });
   const { data: projects = [] } = useProjects(teamId, isAdmin);
 
   const handleTeamChange = (newTeamId: number | null) => {
