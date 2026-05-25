@@ -46,13 +46,27 @@ export function DailyLog() {
   // Fetch teams for admins (needed to determine team_id if user doesn't have one)
   const { data: teams = [] } = useTeams({ isAdmin });
 
-  // Determine teamId for admin: use user's team_id if available, otherwise use first team
-  const adminTeamId = useMemo(() => {
+  // Admin team selector state — default to user's own team or first team once loaded
+  const defaultAdminTeamId = useMemo(() => {
     if (!isAdmin) return null;
     if (user?.team_id) return user.team_id;
     if (teams.length > 0) return teams[0].id;
     return null;
   }, [isAdmin, user?.team_id, teams]);
+
+  const [selectedAdminTeamId, setSelectedAdminTeamId] = useState<number | null>(null);
+
+  // Once teams load, auto-select the default if nothing selected yet
+  const adminTeamId = useMemo(() => {
+    if (!isAdmin) return null;
+    return selectedAdminTeamId ?? defaultAdminTeamId;
+  }, [isAdmin, selectedAdminTeamId, defaultAdminTeamId]);
+
+  const handleAdminTeamChange = (teamId: number | null) => {
+    setSelectedAdminTeamId(teamId);
+    setSelectedProjectIds([]);
+    setSelectedUserIds([]);
+  };
 
   // Fetch data based on user role
   const { data: myLogs = [], isLoading: myLogsLoading } = useMyLogs(
@@ -69,7 +83,7 @@ export function DailyLog() {
   const { data: allProjects = [], isLoading: allProjectsLoading } = useProjects(adminTeamId, isAdmin);
   // Fetch users: for admins, fetch by team; for members, fetch all (for filter dropdown)
   const { data: allUsers = [], isLoading: allUsersLoading } = useUsers(isAdmin);
-  const { data: teamUsers = [], isLoading: teamUsersLoading } = useUsersByTeam(adminTeamId, isAdmin);
+  const { data: teamUsers = [], isLoading: teamUsersLoading } = useUsersByTeam(adminTeamId, isAdmin, { includeInactive: true });
   const users = isAdmin ? teamUsers : allUsers;
   const usersLoading = isAdmin ? teamUsersLoading : allUsersLoading;
 
@@ -219,12 +233,30 @@ export function DailyLog() {
         <CardContent>
           {isAdmin ? (
             // Admin filters with multi-select
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <DateRangePicker
                 label="Date Range"
                 value={dateRange}
                 onChange={setDateRange}
               />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Team</label>
+                <Select
+                  value={adminTeamId?.toString() || ''}
+                  onValueChange={(val) => handleAdminTeamChange(val ? parseInt(val, 10) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id.toString()}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <MultiSelect
                 label="Projects"
                 placeholder="All projects"
